@@ -2,96 +2,75 @@ package qchan
 
 import "sync"
 
-// Node represents a node in the queue.
+// Queue represents a queue using a channel.
+// It is safe for concurrent use.
 //
-// Value is the value of the node.
-// Next is the next node in the queue.
-type Node struct {
-	Value any
-	Next  *Node
-}
-
-// Queue represents a queue.
-//
-// head is the head of the queue.
-// tail is the tail of the queue.
-// lock is a mutex to lock the queue for exclusive access.
-// size is the size of the queue.
-// ch is a channel to signal when an item is available.
+// ch is the underlying channel that stores the queue elements.
+// lock is a mutex used to synchronize access to the queue.
+// size is the current number of elements in the queue.
 type Queue struct {
-	head *Node
-	tail *Node
+	ch   chan any
 	lock sync.Mutex
 	size int
-	ch   chan struct{}
 }
 
-// NewQueue creates and returns a new Queue.
-func NewQueue() *Queue {
+// NewQueue creates and returns a new Queue with a specified buffer size.
+//
+// bufferSize is the size of the channel buffer.
+func NewQueue(bufferSize int) *Queue {
 	return &Queue{
-		head: nil,
-		tail: nil,
-		lock: sync.Mutex{},
-		ch:   make(chan struct{}),
+		ch: make(chan any, bufferSize),
 	}
 }
 
-// Enqueue enqueues an item to the queue.
+// Enqueue adds a new value to the end of the queue.
+//
+// value is the value to be added to the queue.
 func (q *Queue) Enqueue(value any) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
+	q.ch <- value
 	q.size++
-
-	if q.head == nil {
-		q.head = &Node{Value: value}
-		q.tail = q.head
-	} else {
-		q.tail.Next = &Node{Value: value}
-		q.tail = q.tail.Next
-	}
 }
 
 // WaitAndDequeue waits for an item to be available and then dequeues it.
-// WARNING: Untested
+// Returns the dequeued value and a boolean indicating if the operation was successful.
 func (q *Queue) WaitAndDequeue() (any, bool) {
-	<-q.ch // wait for the signal that an item is available
-	return q.Dequeue()
+	value, ok := <-q.ch
+	if ok {
+		q.lock.Lock()
+		q.size--
+		q.lock.Unlock()
+	}
+	return value, ok
 }
 
-// Dequeue dequeues an item from the queue.
-//
-// Returns the value of the item and a boolean indicating if the item was successfully dequeued.
+// Dequeue removes and returns the value from the front of the queue.
+// Returns the dequeued value and a boolean indicating if the operation was successful.
 func (q *Queue) Dequeue() (any, bool) {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	if q.head == nil {
+	select {
+	case value := <-q.ch:
+		q.lock.Lock()
+		q.size--
+		q.lock.Unlock()
+		return value, true
+	default:
 		return nil, false
 	}
-
-	q.size--
-	value := q.head.Value
-	q.head = q.head.Next
-
-	return value, true
 }
 
-// IsEmpty returns true if the queue is empty.
+// IsEmpty checks if the queue is empty.
+// Returns true if the queue is empty, otherwise false.
 func (q *Queue) IsEmpty() bool {
+	q.lock.Lock()
+	defer q.lock.Unlock()
 	return q.size == 0
 }
 
-// Peak returns the value of the head of the queue and a boolean indicating if the head was successfully returned.
-func (q *Queue) Peak() (any, bool) {
-	if q.head == nil {
-		return nil, false
-	}
-
-	return q.head.Value, true
-}
-
-// Size returns the size of the queue.
+// Size returns the number of items in the queue.
 func (q *Queue) Size() int {
+	q.lock.Lock()
+	defer q.lock.Unlock()
 	return q.size
 }
