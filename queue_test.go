@@ -104,3 +104,91 @@ func TestLargeQueue(t *testing.T) {
 		t.Errorf("Expected size 1000000, got %d", q.Size())
 	}
 }
+
+package queuechan
+
+import (
+	"sync"
+	"testing"
+)
+
+func TestQueueConcurrentEnqueue(t *testing.T) {
+	q := New[int]()
+	var wg sync.WaitGroup
+	numGoroutines := 100
+	numItems := 1000
+
+	wg.Add(numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		go func(start int) {
+			defer wg.Done()
+			for j := 0; j < numItems; j++ {
+				q.Enqueue(start*numItems + j)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	expectedSize := numGoroutines * numItems
+	if q.Size() != expectedSize {
+		t.Errorf("Expected size %d, got %d", expectedSize, q.Size())
+	}
+}
+
+func TestQueueConcurrentDequeue(t *testing.T) {
+	q := New[int]()
+	numGoroutines := 100
+	numItems := 1000
+
+	// Enqueue items
+	for i := 0; i < numGoroutines*numItems; i++ {
+		q.Enqueue(i)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < numItems; j++ {
+				q.Dequeue()
+			}
+		}()
+	}
+	wg.Wait()
+
+	if !q.IsEmpty() {
+		t.Error("Queue should be empty after concurrent dequeues")
+	}
+}
+
+func TestQueueConcurrentEnqueueDequeue(t *testing.T) {
+	q := New[int]()
+	var wg sync.WaitGroup
+	numGoroutines := 100
+	numItems := 1000
+
+	wg.Add(numGoroutines * 2)
+	for i := 0; i < numGoroutines; i++ {
+		go func(start int) {
+			defer wg.Done()
+			for j := 0; j < numItems; j++ {
+				q.Enqueue(start*numItems + j)
+			}
+		}(i)
+	}
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < numItems; j++ {
+				q.Dequeue()
+			}
+		}()
+	}
+	wg.Wait()
+
+	if !q.IsEmpty() {
+		t.Error("Queue should be empty after concurrent enqueues and dequeues")
+	}
+}
