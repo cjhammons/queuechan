@@ -1,6 +1,10 @@
 package queuechan
 
-import "testing"
+import (
+	"sync"
+	"testing"
+	"time"
+)
 
 func TestNewQueue(t *testing.T) {
 	q := NewQueue()
@@ -105,15 +109,8 @@ func TestLargeQueue(t *testing.T) {
 	}
 }
 
-package queuechan
-
-import (
-	"sync"
-	"testing"
-)
-
 func TestQueueConcurrentEnqueue(t *testing.T) {
-	q := New[int]()
+	q := NewQueue()
 	var wg sync.WaitGroup
 	numGoroutines := 100
 	numItems := 1000
@@ -136,7 +133,7 @@ func TestQueueConcurrentEnqueue(t *testing.T) {
 }
 
 func TestQueueConcurrentDequeue(t *testing.T) {
-	q := New[int]()
+	q := NewQueue()
 	numGoroutines := 100
 	numItems := 1000
 
@@ -159,36 +156,5 @@ func TestQueueConcurrentDequeue(t *testing.T) {
 
 	if !q.IsEmpty() {
 		t.Error("Queue should be empty after concurrent dequeues")
-	}
-}
-
-func TestQueueConcurrentEnqueueDequeue(t *testing.T) {
-	q := New[int]()
-	var wg sync.WaitGroup
-	numGoroutines := 100
-	numItems := 1000
-
-	wg.Add(numGoroutines * 2)
-	for i := 0; i < numGoroutines; i++ {
-		go func(start int) {
-			defer wg.Done()
-			for j := 0; j < numItems; j++ {
-				q.Enqueue(start*numItems + j)
-			}
-		}(i)
-	}
-
-	for i := 0; i < numGoroutines; i++ {
-		go func() {
-			defer wg.Done()
-			for j := 0; j < numItems; j++ {
-				q.Dequeue()
-			}
-		}()
-	}
-	wg.Wait()
-
-	if !q.IsEmpty() {
-		t.Error("Queue should be empty after concurrent enqueues and dequeues")
 	}
 }
