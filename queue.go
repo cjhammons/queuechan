@@ -3,6 +3,11 @@ package qchan
 import "sync"
 
 // Queue represents a queue using a channel.
+// It is safe for concurrent use.
+//
+// ch is the underlying channel that stores the queue elements.
+// lock is a mutex used to synchronize access to the queue.
+// size is the current number of elements in the queue.
 type Queue struct {
 	ch   chan any
 	lock sync.Mutex
@@ -10,6 +15,8 @@ type Queue struct {
 }
 
 // NewQueue creates and returns a new Queue with a specified buffer size.
+//
+// bufferSize is the size of the channel buffer.
 func NewQueue(bufferSize int) *Queue {
 	return &Queue{
 		ch: make(chan any, bufferSize),
@@ -17,6 +24,8 @@ func NewQueue(bufferSize int) *Queue {
 }
 
 // Enqueue adds a new value to the end of the queue.
+//
+// value is the value to be added to the queue.
 func (q *Queue) Enqueue(value any) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
