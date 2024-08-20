@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewQueue(t *testing.T) {
-	q := NewQueue()
+	q := NewQueue(3)
 	if q == nil {
 		t.Error("New queue should not be nil")
 	}
@@ -17,7 +17,7 @@ func TestNewQueue(t *testing.T) {
 }
 
 func TestQueueEnqueue(t *testing.T) {
-	q := NewQueue()
+	q := NewQueue(3)
 	q.Enqueue(1)
 	q.Enqueue(2)
 	q.Enqueue(3)
@@ -28,7 +28,7 @@ func TestQueueEnqueue(t *testing.T) {
 }
 
 func TestQueueDequeue(t *testing.T) {
-	q := NewQueue()
+	q := NewQueue(3)
 	q.Enqueue(1)
 	q.Enqueue(2)
 	q.Enqueue(3)
@@ -54,7 +54,7 @@ func TestQueueDequeue(t *testing.T) {
 }
 
 func TestQueueDequeueEmpty(t *testing.T) {
-	q := NewQueue()
+	q := NewQueue(3)
 	_, ok := q.Dequeue()
 	if ok {
 		t.Error("Dequeue on empty queue should return false")
@@ -62,7 +62,7 @@ func TestQueueDequeueEmpty(t *testing.T) {
 }
 
 func TestQueueIsEmpty(t *testing.T) {
-	q := NewQueue()
+	q := NewQueue(3)
 	if !q.IsEmpty() {
 		t.Error("New queue should be empty")
 	}
@@ -77,7 +77,7 @@ func TestQueueIsEmpty(t *testing.T) {
 }
 
 func TestQueueSize(t *testing.T) {
-	q := NewQueue()
+	q := NewQueue(2)
 	if q.Size() != 0 {
 		t.Errorf("Expected size 0, got %d", q.Size())
 	}
@@ -100,7 +100,7 @@ func TestQueueSize(t *testing.T) {
 }
 
 func TestLargeQueue(t *testing.T) {
-	q := NewQueue()
+	q := NewQueue(1000000)
 	for i := 0; i < 1000000; i++ {
 		q.Enqueue(i)
 	}
@@ -109,52 +109,97 @@ func TestLargeQueue(t *testing.T) {
 	}
 }
 
-func TestQueueConcurrentEnqueue(t *testing.T) {
-	q := NewQueue()
+func TestWaitAndDequeue(t *testing.T) {
+	q := NewQueue(3)
+
+	// Test WaitAndDequeue with an empty queue
+	done := make(chan struct{})
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		q.Enqueue(1)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		value, ok := q.WaitAndDequeue()
+		if !ok || value != 1 {
+			t.Errorf("Expected value 1, got %v", value)
+		}
+	case <-time.After(1 * time.Second):
+		t.Error("Test timed out waiting for enqueue")
+	}
+
+	// Test WaitAndDequeue with multiple items
+	q.Enqueue(2)
+	q.Enqueue(3)
+
+	value, ok := q.WaitAndDequeue()
+	if !ok || value != 2 {
+		t.Errorf("Expected value 2, got %v", value)
+	}
+
+	value, ok = q.WaitAndDequeue()
+	if !ok || value != 3 {
+		t.Errorf("Expected value 3, got %v", value)
+	}
+
+	// Test WaitAndDequeue with concurrent enqueue
 	var wg sync.WaitGroup
-	numGoroutines := 100
-	numItems := 1000
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		time.Sleep(100 * time.Millisecond)
+		q.Enqueue(4)
+	}()
 
-	wg.Add(numGoroutines)
-	for i := 0; i < numGoroutines; i++ {
-		go func(start int) {
-			defer wg.Done()
-			for j := 0; j < numItems; j++ {
-				q.Enqueue(start*numItems + j)
+	select {
+	case <-time.After(1 * time.Second):
+		t.Error("Test timed out waiting for enqueue")
+	case <-func() chan struct{} {
+		done := make(chan struct{})
+		go func() {
+			value, ok = q.WaitAndDequeue()
+			if !ok || value != 4 {
+				t.Errorf("Expected value 4, got %v", value)
 			}
-		}(i)
+			close(done)
+		}()
+		return done
+	}():
 	}
-	wg.Wait()
 
-	expectedSize := numGoroutines * numItems
-	if q.Size() != expectedSize {
-		t.Errorf("Expected size %d, got %d", expectedSize, q.Size())
-	}
+	wg.Wait()
 }
 
-func TestQueueConcurrentDequeue(t *testing.T) {
-	q := NewQueue()
-	numGoroutines := 100
-	numItems := 1000
+func TestQueueConcurrentEnqueueDequeue(t *testing.T) {
+	q := NewQueue(10)
+	var wg sync.WaitGroup
 
-	// Enqueue items
-	for i := 0; i < numGoroutines*numItems; i++ {
-		q.Enqueue(i)
+	// Concurrently enqueue items
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			q.Enqueue(i)
+		}(i)
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(numGoroutines)
-	for i := 0; i < numGoroutines; i++ {
+	// Concurrently dequeue items
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < numItems; j++ {
-				q.Dequeue()
+			_, ok := q.WaitAndDequeue()
+			if !ok {
+				t.Error("Failed to dequeue item")
 			}
 		}()
 	}
+
 	wg.Wait()
 
 	if !q.IsEmpty() {
-		t.Error("Queue should be empty after concurrent dequeues")
+		t.Error("Queue should be empty after all operations")
 	}
 }
