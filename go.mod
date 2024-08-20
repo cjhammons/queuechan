@@ -1,3 +1,3 @@
-module github.com/cjhammons/queuechan
+module github.com/cjhammons/qchan
 
 go 1.22.6

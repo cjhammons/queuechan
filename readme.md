@@ -1,4 +1,4 @@
-# queuechan
+# QChan
 
 A simple queue implementation in Go using channels.
 
@@ -7,23 +7,23 @@ A simple queue implementation in Go using channels.
 To install the package, use the following command:
 
 ```sh
-go get github.com/cjhammons/queuechan
+go get github.com/cjhammons/qchan
 ```
 
 ## Usage
 
-Here is an example of how to use the `queuechan` package:
+Here is an example of how to use the `qchan` package:
 
 ```go
 package main
 
 import (
     "fmt"
-    "github.com/cjhammons/queuechan"
+    "github.com/cjhammons/qchan"
 )
 
 func main() {
-    q := queuechan.NewQueue()
+    q := qchan.NewQueue()
     
     // Enqueue items
     q.Enqueue(1)

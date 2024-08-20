@@ -1,4 +1,4 @@
-package queuechan
+package qchan
 
 import "sync"
 
