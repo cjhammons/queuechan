@@ -2,10 +2,6 @@ package queuechan
 
 import "testing"
 
-package queuechan
-
-import "testing"
-
 func TestNewQueue(t *testing.T) {
 	q := NewQueue()
 	if q == nil {
@@ -96,5 +92,15 @@ func TestQueueSize(t *testing.T) {
 	q.Dequeue()
 	if q.Size() != 0 {
 		t.Errorf("Expected size 0, got %d", q.Size())
+	}
+}
+
+func TestLargeQueue(t *testing.T) {
+	q := NewQueue()
+	for i := 0; i < 1000000; i++ {
+		q.Enqueue(i)
+	}
+	if q.Size() != 1000000 {
+		t.Errorf("Expected size 1000000, got %d", q.Size())
 	}
 }
