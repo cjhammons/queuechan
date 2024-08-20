@@ -1,4 +1,4 @@
-# QChan
+# Qchan
 
 A simple queue implementation in Go using channels.
 
@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-    q := qchan.NewQueue()
+    q := qchan.NewQueue(10) // Create a new queue with a buffer size of 10
     
     // Enqueue items
     q.Enqueue(1)
@@ -59,8 +59,8 @@ func main() {
 
 ## Methods
 
-### `NewQueue() *Queue`
-Creates and returns a new `Queue`.
+### `NewQueue(bufferSize int) *Queue`
+Creates and returns a new `Queue` with a specified buffer size.
 
 ### `Enqueue(value any)`
 Adds a new value to the end of the queue.
@@ -73,9 +73,6 @@ Removes and returns the value from the front of the queue. Returns the dequeued 
 
 ### `IsEmpty() bool`
 Checks if the queue is empty. Returns true if the queue is empty, otherwise false.
-
-### `Peak() (any, bool)`
-Returns the value at the front of the queue without removing it. Returns the value and a boolean indicating if the operation was successful.
 
 ### `Size() int`
 Returns the number of items in the queue.
